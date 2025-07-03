@@ -61,32 +61,45 @@ func DefaultLimit() gin.HandlerFunc {
 	}.LimitWithTime()
 }
 
-// SetLimitWithTime 设置访问次数
+// SetLimitWithTime 设置访问次数 - 修复了原有的race condition问题
 func SetLimitWithTime(key string, limit int, expiration time.Duration) error {
-	count, err := global.GVA_REDIS.Exists(context.Background(), key).Result()
+	ctx := context.Background()
+	
+	// 使用Lua脚本确保原子性操作，避免race condition
+	luaScript := `
+	local key = KEYS[1]
+	local limit = tonumber(ARGV[1])
+	local expiration = tonumber(ARGV[2])
+	
+	local current = redis.call('GET', key)
+	if current == false then
+		redis.call('SET', key, 1)
+		redis.call('EXPIRE', key, expiration)
+		return 1
+	else
+		current = tonumber(current)
+		if current < limit then
+			return redis.call('INCR', key)
+		else
+			local ttl = redis.call('TTL', key)
+			return -ttl
+		end
+	end
+	`
+	
+	result, err := global.GVA_REDIS.Eval(ctx, luaScript, []string{key}, limit, int(expiration.Seconds())).Result()
 	if err != nil {
 		return err
 	}
-	if count == 0 {
-		pipe := global.GVA_REDIS.TxPipeline()
-		pipe.Incr(context.Background(), key)
-		pipe.Expire(context.Background(), key, expiration)
-		_, err = pipe.Exec(context.Background())
-		return err
-	} else {
-		// 次数
-		if times, err := global.GVA_REDIS.Get(context.Background(), key).Int(); err != nil {
-			return err
-		} else {
-			if times >= limit {
-				if t, err := global.GVA_REDIS.PTTL(context.Background(), key).Result(); err != nil {
-					return errors.New("请求太过频繁，请稍后再试")
-				} else {
-					return errors.New("请求太过频繁, 请 " + t.String() + " 秒后尝试")
-				}
-			} else {
-				return global.GVA_REDIS.Incr(context.Background(), key).Err()
-			}
+	
+	// 如果返回值是负数，表示已超过限制，返回相应错误
+	if resultInt, ok := result.(int64); ok && resultInt < 0 {
+		ttl := -resultInt
+		if ttl <= 0 {
+			return errors.New("请求太过频繁，请稍后再试")
 		}
+		return errors.New("请求太过频繁, 请 " + time.Duration(ttl)*time.Second.String() + " 后尝试")
 	}
+	
+	return nil
 }

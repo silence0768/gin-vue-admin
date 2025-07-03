@@ -107,13 +107,10 @@ service.interceptors.response.use(
     if (!error.response) {
       errorBoxVisible = true
       ElMessageBox.confirm(
-        `
-        <p>检测到请求错误</p>
-        <p>${error}</p>
-        `,
+        `检测到请求错误：${String(error).replace(/</g, '&lt;').replace(/>/g, '&gt;')}`,
         '请求报错',
         {
-          dangerouslyUseHTMLString: true,
+          // 修复XSS漏洞：移除dangerouslyUseHTMLString，使用安全的文本显示
           distinguishCancelAndClose: true,
           confirmButtonText: '稍后重试',
           cancelButtonText: '取消'
@@ -129,13 +126,10 @@ service.interceptors.response.use(
       case 500:
         errorBoxVisible = true
         ElMessageBox.confirm(
-          `
-        <p>检测到接口错误${error}</p>
-        <p>错误码<span style="color:red"> 500 </span>：此类错误内容常见于后台panic，请先查看后台日志，如果影响您正常使用可强制登出清理缓存</p>
-        `,
+          `检测到接口错误：${String(error).replace(/</g, '&lt;').replace(/>/g, '&gt;')}\n\n错误码 500：此类错误内容常见于后台panic，请先查看后台日志，如果影响您正常使用可强制登出清理缓存`,
           '接口报错',
           {
-            dangerouslyUseHTMLString: true,
+            // 修复XSS漏洞：移除dangerouslyUseHTMLString，使用安全的文本显示
             distinguishCancelAndClose: true,
             confirmButtonText: '清理缓存',
             cancelButtonText: '取消'
@@ -152,13 +146,10 @@ service.interceptors.response.use(
       case 404:
         errorBoxVisible = true
         ElMessageBox.confirm(
-          `
-          <p>检测到接口错误${error}</p>
-          <p>错误码<span style="color:red"> 404 </span>：此类错误多为接口未注册（或未重启）或者请求路径（方法）与api路径（方法）不符--如果为自动化代码请检查是否存在空格</p>
-          `,
+          `检测到接口错误：${String(error).replace(/</g, '&lt;').replace(/>/g, '&gt;')}\n\n错误码 404：此类错误多为接口未注册（或未重启）或者请求路径（方法）与api路径（方法）不符--如果为自动化代码请检查是否存在空格`,
           '接口报错',
           {
-            dangerouslyUseHTMLString: true,
+            // 修复XSS漏洞：移除dangerouslyUseHTMLString，使用安全的文本显示
             distinguishCancelAndClose: true,
             confirmButtonText: '我知道了',
             cancelButtonText: '取消'
@@ -171,13 +162,10 @@ service.interceptors.response.use(
       case 401:
         errorBoxVisible = true
         ElMessageBox.confirm(
-          `
-          <p>无效的令牌</p>
-          <p>错误码:<span style="color:red"> 401 </span>错误信息:${error}</p>
-          `,
+          `无效的令牌\n\n错误码: 401  错误信息: ${String(error).replace(/</g, '&lt;').replace(/>/g, '&gt;')}`,
           '身份信息',
           {
-            dangerouslyUseHTMLString: true,
+            // 修复XSS漏洞：移除dangerouslyUseHTMLString，使用安全的文本显示
             distinguishCancelAndClose: true,
             confirmButtonText: '重新登录',
             cancelButtonText: '取消'

@@ -12,7 +12,29 @@ func Cors() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		method := c.Request.Method
 		origin := c.Request.Header.Get("Origin")
-		c.Header("Access-Control-Allow-Origin", origin)
+		
+		// 安全修复：验证origin是否在允许的列表中，或者设置为通配符
+		// 如果配置了白名单，检查origin是否在白名单中
+		if len(global.GVA_CONFIG.Cors.Whitelist) > 0 {
+			allowed := false
+			for _, whitelist := range global.GVA_CONFIG.Cors.Whitelist {
+				if origin == whitelist.AllowOrigin {
+					allowed = true
+					break
+				}
+			}
+			if allowed {
+				c.Header("Access-Control-Allow-Origin", origin)
+			} else {
+				// 对于不在白名单中的origin，不设置CORS头或返回错误
+				c.AbortWithStatus(http.StatusForbidden)
+				return
+			}
+		} else {
+			// 如果没有配置白名单，使用通配符（仍需谨慎使用）
+			c.Header("Access-Control-Allow-Origin", "*")
+		}
+		
 		c.Header("Access-Control-Allow-Headers", "Content-Type,AccessToken,X-CSRF-Token, Authorization, Token,X-Token,X-User-Id")
 		c.Header("Access-Control-Allow-Methods", "POST, GET, OPTIONS,DELETE,PUT")
 		c.Header("Access-Control-Expose-Headers", "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Content-Type, New-Token, New-Expires-At")
